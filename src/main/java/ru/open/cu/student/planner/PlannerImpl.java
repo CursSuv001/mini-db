@@ -8,9 +8,7 @@ import ru.open.cu.student.catalog.model.TableDefinition;
 import ru.open.cu.student.catalog.model.TypeDefinition;
 import ru.open.cu.student.ast.Expr;
 import ru.open.cu.student.ast.TargetEntry;
-import ru.open.cu.student.planner.node.CreateTableNode;
-import ru.open.cu.student.planner.node.InsertNode;
-import ru.open.cu.student.planner.node.LogicalPlanNode;
+import ru.open.cu.student.planner.node.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +32,7 @@ public class PlannerImpl implements Planner {
         return switch (queryTree.commandType) {
             case CREATE -> planCreate(queryTree);
             case INSERT -> planInsert(queryTree);
+            case SELECT -> planSelect(queryTree); // поменять на нужное
         };
     }
 
@@ -44,7 +43,7 @@ public class PlannerImpl implements Planner {
         List<ColumnDefinition> columns = new ArrayList<>();
         int position = 0;
         for (TargetEntry te : q.targetList) {
-            TypeDefinition type = catalogManager.getTypeByName(te.resultType);
+            TypeDefinition type = catalogManager.getType(te.resultType);
 
             columns.add(new ColumnDefinition(
                     type.getOid(),
@@ -71,6 +70,22 @@ public class PlannerImpl implements Planner {
         return new InsertNode(tableDef, values);
     }
 
+    // ---------- SELECT ---------
+    private LogicalPlanNode planSelect(QueryTree q) {
+        String tableName = extractTableName(q);
+        TableDefinition tableDef = catalogManager.getTable(tableName);
+        LogicalPlanNode plan = new ScanNode(tableDef);
+
+        // 2. Применение фильтра WHERE (если есть)
+        if (q.whereClause != null) {
+            plan = new FilterNode(q.whereClause, plan);
+        }
+
+        // 3. Проекция SELECT-списка (верхний узел)
+        plan = new ProjectNode(q.targetList, plan);
+
+        return plan;
+    }
 
     private String extractTableName(QueryTree q) {
         if (q.rangeTable != null && !q.rangeTable.isEmpty() && q.rangeTable.get(0).tableName != null) {

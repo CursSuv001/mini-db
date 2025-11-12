@@ -25,7 +25,8 @@ public class InsertExecutor implements Executor {
     }
 
     @Override
-    public void open() { }
+    public void open() {
+    }
 
     @Override
     public Object next() {

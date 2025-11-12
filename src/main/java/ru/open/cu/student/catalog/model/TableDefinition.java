@@ -1,5 +1,8 @@
 package ru.open.cu.student.catalog.model;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -24,6 +27,43 @@ public class TableDefinition {
     private TableDefinition(int oid, String name, String type, String fileNode, int pagesCount, List<ColumnDefinition> columns) {
         this(oid, name, type, fileNode, pagesCount);
         this.columns.addAll(columns);
+    }
+
+    public static TableDefinition fromBytes(byte[] data) {
+        ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+        if (buffer.remaining() < 4 + 2 + 2 + 2 + 4) {
+            throw new IllegalArgumentException("payload is too small for TableDefinition");
+        }
+
+        int oid = buffer.getInt();
+
+        int nameLen = buffer.getShort() & 0xFFFF;
+        if (buffer.remaining() < nameLen + 2) {
+            throw new IllegalArgumentException("invalid name length in TableDefinition");
+        }
+        byte[] nameBytes = new byte[nameLen];
+        buffer.get(nameBytes);
+        String name = new String(nameBytes, StandardCharsets.UTF_8);
+
+        int typeLen = buffer.getShort() & 0xFFFF;
+        if (buffer.remaining() < typeLen + 2) {
+            throw new IllegalArgumentException("invalid type length in TableDefinition");
+        }
+        byte[] typeBytes = new byte[typeLen];
+        buffer.get(typeBytes);
+        String type = new String(typeBytes, StandardCharsets.UTF_8);
+
+        int fileNodeLen = buffer.getShort() & 0xFFFF;
+        if (buffer.remaining() < fileNodeLen + 4) {
+            throw new IllegalArgumentException("invalid fileNode length in TableDefinition");
+        }
+        byte[] fileNodeBytes = new byte[fileNodeLen];
+        buffer.get(fileNodeBytes);
+        String fileNode = new String(fileNodeBytes, StandardCharsets.UTF_8);
+
+        int pagesCount = buffer.getInt();
+
+        return new TableDefinition(oid, name, type, fileNode, pagesCount);
     }
 
     public int getOid() {
@@ -58,5 +98,36 @@ public class TableDefinition {
     public void setColumns(List<ColumnDefinition> columnDefinitions) {
         columns.clear();
         columns.addAll(columnDefinitions);
+    }
+
+    public byte[] toBytes() {
+        byte[] nameBytes = name.getBytes(StandardCharsets.UTF_8);
+        byte[] typeBytes = type.getBytes(StandardCharsets.UTF_8);
+        byte[] fileNodeBytes = fileNode.getBytes(StandardCharsets.UTF_8);
+
+        if (nameBytes.length > Short.MAX_VALUE) {
+            throw new IllegalStateException("table name is too long");
+        }
+        if (typeBytes.length > Short.MAX_VALUE) {
+            throw new IllegalStateException("table type is too long");
+        }
+        if (fileNodeBytes.length > Short.MAX_VALUE) {
+            throw new IllegalStateException("fileNode is too long");
+        }
+
+        ByteBuffer buffer = ByteBuffer
+                .allocate(4 + 2 + nameBytes.length + 2 + typeBytes.length + 2 + fileNodeBytes.length + 4)
+                .order(ByteOrder.LITTLE_ENDIAN);
+
+        buffer.putInt(oid);
+        buffer.putShort((short) nameBytes.length);
+        buffer.put(nameBytes);
+        buffer.putShort((short) typeBytes.length);
+        buffer.put(typeBytes);
+        buffer.putShort((short) fileNodeBytes.length);
+        buffer.put(fileNodeBytes);
+        buffer.putInt(pagesCount);
+
+        return buffer.array();
     }
 }

@@ -1,23 +1,24 @@
 package ru.open.cu.student.execution;
 
 
+import ru.open.cu.student.ast.AExpr;
 import ru.open.cu.student.catalog.manager.CatalogManager;
 import ru.open.cu.student.catalog.operation.OperationManager;
-import ru.open.cu.student.execution.executors.CreateTableExecutor;
-import ru.open.cu.student.execution.executors.Executor;
-import ru.open.cu.student.execution.executors.InsertExecutor;
-import ru.open.cu.student.optimizer.node.PhysicalCreateNode;
-import ru.open.cu.student.optimizer.node.PhysicalInsertNode;
-import ru.open.cu.student.optimizer.node.PhysicalPlanNode;
+import ru.open.cu.student.execution.executors.*;
+import ru.open.cu.student.memory.buffer.BufferPoolManager;
+import ru.open.cu.student.optimizer.node.*;
 
 public class ExecutorFactoryImpl implements ExecutorFactory {
 
     private final CatalogManager catalogManager;
     private final OperationManager operationManager;
+    private final BufferPoolManager bufferPool;
 
-    public ExecutorFactoryImpl(CatalogManager catalogManager, OperationManager operationManager) {
+
+    public ExecutorFactoryImpl(CatalogManager catalogManager, OperationManager operationManager, BufferPoolManager bufferPool) {
         this.catalogManager = catalogManager;
         this.operationManager = operationManager;
+        this.bufferPool = bufferPool;
     }
 
     @Override
@@ -32,6 +33,16 @@ public class ExecutorFactoryImpl implements ExecutorFactory {
                     insert.getValues()
             );
 
+        } else if (plan instanceof PhysicalSeqScanNode scan) {
+            return new SeqScanExecutor(bufferPool, scan.getTableDefinition());
+
+        } else if (plan instanceof PhysicalFilterNode filter) {
+            Executor child = createExecutor(filter.getChild());
+            return new FilterExecutor(child, filter.getCondition());
+
+        } else if (plan instanceof PhysicalProjectNode project) {
+            Executor child = createExecutor(project.getChild());
+            return new ProjectExecutor(child, project.getTargetList());
         }
 
         throw new UnsupportedOperationException(

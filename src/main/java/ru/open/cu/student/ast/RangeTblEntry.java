@@ -2,7 +2,7 @@ package ru.open.cu.student.ast;
 
 
 public class RangeTblEntry {
-    public final String tableName;   // имя таблицы из каталога
+    public String tableName;   // имя таблицы из каталога
     public String alias;             // псевдоним таблицы
     public int index;                // порядковый номер в запросе
 
