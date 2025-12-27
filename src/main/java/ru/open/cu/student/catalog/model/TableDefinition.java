@@ -24,11 +24,6 @@ public class TableDefinition {
         this.pagesCount = pagesCount;
     }
 
-    private TableDefinition(int oid, String name, String type, String fileNode, int pagesCount, List<ColumnDefinition> columns) {
-        this(oid, name, type, fileNode, pagesCount);
-        this.columns.addAll(columns);
-    }
-
     public static TableDefinition fromBytes(byte[] data) {
         ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
         if (buffer.remaining() < 4 + 2 + 2 + 2 + 4) {
@@ -94,7 +89,6 @@ public class TableDefinition {
         return Collections.unmodifiableList(columns);
     }
 
-    // Заменяем список колонок, сохраняя неизменяемый вид наружу.
     public void setColumns(List<ColumnDefinition> columnDefinitions) {
         columns.clear();
         columns.addAll(columnDefinitions);

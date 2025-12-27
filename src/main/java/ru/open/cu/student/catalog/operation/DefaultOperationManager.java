@@ -73,7 +73,7 @@ public class DefaultOperationManager implements OperationManager {
             Object value = values.get(i);
             TypeDefinition type = getType(columns.get(i).getTypeOid());
 
-            switch (type.getName().toLowerCase()) {
+            switch (type.name().toLowerCase()) {
                 case "integer":
                     buffer.putInt((Integer) value);
                     break;
@@ -103,7 +103,7 @@ public class DefaultOperationManager implements OperationManager {
         for (ColumnDefinition column : columns) {
             TypeDefinition type = getType(column.getTypeOid());
 
-            switch (type.getName().toLowerCase()) {
+            switch (type.name().toLowerCase()) {
                 case "integer":
                     row.add(buffer.getInt());
                     break;
@@ -223,6 +223,7 @@ public class DefaultOperationManager implements OperationManager {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private List<ColumnDefinition> getTableColumns(TableDefinition table) {
         try {
             java.lang.reflect.Method method = catalogManager.getClass()

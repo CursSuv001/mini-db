@@ -6,7 +6,6 @@ import ru.open.cu.student.memory.page.Page;
 import ru.open.cu.student.memory.replacer.Replacer;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

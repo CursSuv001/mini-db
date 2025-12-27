@@ -9,14 +9,12 @@ import ru.open.cu.student.memory.page.HeapPage;
  */
 public class SeqScanExecutor implements Executor {
     private final BufferPoolManager bufferPool;
-    private final String tableName;
     private int currentPageId;
     private int currentRowIndex;
     private boolean isOpen;
 
     public SeqScanExecutor(BufferPoolManager bufferPool, TableDefinition tableDefinition) {
         this.bufferPool = bufferPool;
-        this.tableName = tableDefinition.getName();
     }
 
     @Override

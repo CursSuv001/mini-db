@@ -27,19 +27,15 @@ public class DefaultCatalogManager implements CatalogManager {
     private final Map<Integer, TypeDefinition> types = new ConcurrentHashMap<>();
     private final Map<String, Integer> tableNameToOid = new ConcurrentHashMap<>();
 
-
     public DefaultCatalogManager() {
         loadCatalog();
         initializeDefaultTypes();
     }
 
-    // В методе createTable замените исключение на возврат существующей таблицы
     @Override
     public TableDefinition createTable(String name, List<ColumnDefinition> columns) {
-        // Если таблица уже существует, возвращаем её
         if (tableNameToOid.containsKey(name.toLowerCase())) {
-            Integer existingOid = tableNameToOid.get(name.toLowerCase());
-            return tables.get(existingOid);
+            throw new IllegalArgumentException("Table already exists: " + name);
         }
 
         int tableOid = nextTableOid.getAndIncrement();
@@ -100,7 +96,6 @@ public class DefaultCatalogManager implements CatalogManager {
                 .sorted(Comparator.comparing(TableDefinition::getName))
                 .collect(Collectors.toList());
     }
-
 
     private void loadCatalog() {
         loadFromFile(TABLE_FILE, this::loadTable);
@@ -239,7 +234,7 @@ public class DefaultCatalogManager implements CatalogManager {
 
     private void loadType(byte[] data) {
         TypeDefinition type = TypeDefinition.fromBytes(data);
-        types.put(type.getOid(), type);
+        types.put(type.oid(), type);
     }
 
     private void initializeDefaultTypes() {
@@ -254,18 +249,18 @@ public class DefaultCatalogManager implements CatalogManager {
 
     private void createType(String name, int byteLength) {
         TypeDefinition type = new TypeDefinition(nextTypeOid.getAndIncrement(), name, byteLength);
-        types.put(type.getOid(), type);
+        types.put(type.oid(), type);
         saveRecord(TYPE_FILE, type.toBytes());
     }
 
     // Вспомогательный метод для получения типа по имени
     public TypeDefinition getType(String typeName) {
         return types.values().stream()
-                .filter(type -> type.getName().equalsIgnoreCase(typeName))
+                .filter(type -> type.name().equalsIgnoreCase(typeName))
                 .findFirst()
                 .orElse(null);
     }
-
+    @Override
     // Вспомогательный метод для получения колонок таблицы
     public List<ColumnDefinition> getTableColumns(TableDefinition table) {
         return table != null ? tableColumns.get(table.getOid()) : Collections.emptyList();

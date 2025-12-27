@@ -1,7 +1,5 @@
 package ru.open.cu.student.memory.page;
 
-import java.util.List;
-
 public interface Page {
     byte[] bytes();
 

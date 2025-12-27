@@ -3,6 +3,7 @@ package ru.open.cu.student;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.open.cu.student.ast.*;
+import ru.open.cu.student.parser.nodes.RangeVar;
 import ru.open.cu.student.catalog.manager.CatalogManager;
 import ru.open.cu.student.catalog.manager.DefaultCatalogManager;
 import ru.open.cu.student.catalog.model.TypeDefinition;
@@ -110,7 +111,7 @@ class SimpleQueryExecutionTest {
     private QueryTree createSimpleCreateQueryWithValidTypes(String tableName) {
         QueryTree query = new QueryTree();
         query.commandType = QueryType.CREATE;
-        query.rangeTable.add(new RangeTblEntry(tableName));
+        query.rangeTable.add(new RangeVar(null, tableName, null)); // Исправлено на RangeVar из-за ошибки типов
 
         // Используем ТОЛЬКО существующие типы из DefaultCatalogManager
         TargetEntry idCol = new TargetEntry(null, "id");
@@ -124,21 +125,10 @@ class SimpleQueryExecutionTest {
         return query;
     }
 
-    private QueryTree createSimpleInsertQuery(String tableName, int id, String name) {
-        QueryTree query = new QueryTree();
-        query.commandType = QueryType.INSERT;
-        query.rangeTable.add(new RangeTblEntry(tableName));
-
-        query.targetList.add(new TargetEntry(new AConst(id), null));
-        query.targetList.add(new TargetEntry(new AConst(name), null));
-
-        return query;
-    }
-
     private QueryTree createSimpleSelectQuery(String tableName) {
         QueryTree query = new QueryTree();
         query.commandType = QueryType.SELECT;
-        query.rangeTable.add(new RangeTblEntry(tableName));
+        query.rangeTable.add(new RangeVar(null, tableName, null)); // Исправлено на RangeVar из-за ошибки типов
         return query;
     }
 

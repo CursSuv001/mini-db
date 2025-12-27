@@ -43,10 +43,15 @@ public class PlannerImpl implements Planner {
         List<ColumnDefinition> columns = new ArrayList<>();
         int position = 0;
         for (TargetEntry te : q.targetList) {
-            TypeDefinition type = catalogManager.getType(te.resultType);
+            // resultType is stored as string representation of OID
+            int typeOid = Integer.parseInt(te.resultType);
+            TypeDefinition type = catalogManager.getType(typeOid);
+            if (type == null) {
+                throw new IllegalArgumentException("Type with OID " + typeOid + " not found");
+            }
 
             columns.add(new ColumnDefinition(
-                    type.getOid(),
+                    type.oid(),
                     te.alias,
                     position++
             ));
@@ -88,8 +93,8 @@ public class PlannerImpl implements Planner {
     }
 
     private String extractTableName(QueryTree q) {
-        if (q.rangeTable != null && !q.rangeTable.isEmpty() && q.rangeTable.get(0).tableName != null) {
-            return q.rangeTable.get(0).tableName;
+        if (q.rangeTable != null && !q.rangeTable.isEmpty() && q.rangeTable.get(0).relname != null) {
+            return q.rangeTable.get(0).relname;
         }
         throw new IllegalArgumentException("Cannot determine table name");
     }

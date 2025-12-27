@@ -1,9 +1,12 @@
 package ru.open.cu.student.ast;
 
-import ru.open.cu.student.ast.AstNode;
-
 public class AExpr extends Expr {
     private final String op;          // оператор: "=", ">", "+", etc.
+
+    public AstNode getLeft() {
+        return left;
+    }
+
     private final AstNode left;          // левый операнд
     private final AstNode right;         // правый операнд
 

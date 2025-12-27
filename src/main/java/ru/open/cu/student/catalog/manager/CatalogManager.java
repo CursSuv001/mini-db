@@ -17,4 +17,7 @@ public interface CatalogManager {
     List<TableDefinition> listTables();
 
     TypeDefinition getType(String resultType);
+    TypeDefinition getType(int resultType);
+
+    List<ColumnDefinition> getTableColumns(TableDefinition tableDef);
 }
