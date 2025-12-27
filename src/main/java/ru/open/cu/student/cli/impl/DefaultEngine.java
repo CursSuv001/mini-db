@@ -1,15 +1,14 @@
 package ru.open.cu.student.cli.impl;
 
 import ru.open.cu.student.SqlProcessor;
-import ru.open.cu.student.ast.QueryTree;
+import ru.open.cu.student.cli.api.Engine;
 import ru.open.cu.student.catalog.manager.CatalogManager;
 import ru.open.cu.student.catalog.manager.DefaultCatalogManager;
+import ru.open.cu.student.catalog.model.TableDefinition;
 import ru.open.cu.student.catalog.operation.DefaultOperationManager;
 import ru.open.cu.student.catalog.operation.OperationManager;
-import ru.open.cu.student.cli.api.Engine;
 import ru.open.cu.student.execution.ExecutorFactory;
 import ru.open.cu.student.execution.ExecutorFactoryImpl;
-import ru.open.cu.student.execution.QueryExecutionEngine;
 import ru.open.cu.student.execution.QueryExecutionEngineImpl;
 import ru.open.cu.student.execution.executors.Executor;
 import ru.open.cu.student.lexer.DefaultLexer;
@@ -47,20 +46,11 @@ public class DefaultEngine implements Engine {
     private final Planner planner = new PlannerImpl(catalog);
     private final Optimizer optimizer = new OptimizerImpl();
 
-    // Storage/BufferPool минимальн
+    // Storage/manager (не привязан к конкретному файлу)
     private final PageFileManager pfm = new HeapPageFileManager();
-    private final BufferPoolManager bufferPool =
-            new DefaultBufferPoolManager(
-                    16,
-                    pfm,
-                    new ClockReplacer(),
-                    new ClockReplacer(),
-                    Path.of("1.dat")
-            );
 
     private final OperationManager opManager = new DefaultOperationManager(catalog);
-    private final ExecutorFactory executorFactory = new ExecutorFactoryImpl(catalog, opManager, bufferPool);
-    private final QueryExecutionEngine execEngine = new QueryExecutionEngineImpl();
+    private final QueryExecutionEngineImpl execEngine = new QueryExecutionEngineImpl();
 
     @Override
     public String executeSql(String sql) {
@@ -73,9 +63,8 @@ public class DefaultEngine implements Engine {
             AstNode ast = parser.parse(tokens);
             log("AST", ast);
 
-            // 3) Semantic Analyzer -> QueryTree
-
-            QueryTree queryTree = sqlProcessor.process(sql);
+            // 3) SQL -> QueryTree
+            var queryTree = sqlProcessor.process(sql);
             log("QUERY_TREE", queryTree);
 
             // 4) Planner -> Logical plan
@@ -86,28 +75,69 @@ public class DefaultEngine implements Engine {
             PhysicalPlanNode physical = optimizer.optimize(logical);
             log("PHYSICAL_PLAN", physical);
 
-            // 6) ExecutorFactory -> Volcano executors
+            // Определяем путь к файлу таблицы (и создаём BufferPool для этого файла)
+            Path tableFile = resolveTableFile(queryTree);
+
+            BufferPoolManager bufferPool = new DefaultBufferPoolManager(
+                    16,
+                    pfm,
+                    new ClockReplacer(),
+                    new ClockReplacer(),
+                    tableFile
+            );
+
+            ExecutorFactory executorFactory = new ExecutorFactoryImpl(catalog, opManager, bufferPool);
+
+            // 6) ExecutorFactory -> executor
             Executor executor = executorFactory.createExecutor(physical);
             log("EXECUTOR", executor.getClass().getSimpleName());
 
-
-            // 7) open/next/close
+            // 7) execute
             List<Object> rows = execEngine.execute(executor);
 
-            // ответ клиенту
-            if (rows.isEmpty()) {
-                return "OK";
-            }
+            // flush, чтобы персистилось
+            bufferPool.flushAllPages();
+
+            if (rows.isEmpty()) return "OK";
             return rows.stream().map(String::valueOf).collect(Collectors.joining("\n"));
 
         } catch (Exception e) {
-
             return "ERROR: " + e.getMessage();
         }
     }
 
-    private void log(String stage, Object obj) {
-        System.out.println("=== " + stage + " ===");
-        System.out.println(obj);
+    private Path resolveTableFile(ru.open.cu.student.ast.QueryTree qt) {
+        String tableName = (qt.rangeTable != null && !qt.rangeTable.isEmpty())
+                ? qt.rangeTable.get(0).relname
+                : null;
+
+        if (tableName == null) {
+            return Path.of("1.dat").toAbsolutePath();
+        }
+
+        // CREATE: таблицы ещё может не быть, поэтому используем временный файл
+        if (qt.commandType != null && qt.commandType.name().equals("CREATE")) {
+            return Path.of("create_tmp.dat").toAbsolutePath();
+        }
+
+        TableDefinition table = catalog.getTable(tableName);
+        if (table == null) {
+            // Если таблицы нет в каталоге — используем имя как файл
+            return Path.of(tableName + ".dat").toAbsolutePath();
+        }
+
+        // Если в TableDefinition есть fileNode — используем его
+        String fileNode = table.getFileNode();
+        if (fileNode != null && !fileNode.isBlank()) {
+            return Path.of(fileNode).toAbsolutePath();
+        }
+
+        // По умолчанию — oid.dat
+        return Path.of(table.getOid() + ".dat").toAbsolutePath();
+    }
+
+    // (логирование)
+    private void log(String tag, Object o) {
+        // System.out.println(tag + ": " + o);
     }
 }
