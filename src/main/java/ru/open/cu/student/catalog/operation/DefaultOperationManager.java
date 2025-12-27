@@ -33,7 +33,6 @@ public class DefaultOperationManager implements OperationManager {
 
         byte[] rowData = serializeRow(values, columns);
 
-
         byte[] page = readPage(table, 0);
         int freePos = findFreePosition(page);
 
@@ -188,14 +187,15 @@ public class DefaultOperationManager implements OperationManager {
         String filename = table.getOid() + ".dat";
         File file = new File(filename);
 
+        // If file doesn't exist — return a newly initialized page with HeapPage header
         if (!file.exists()) {
-            // Create empty page if file doesn't exist
-            return new byte[PAGE_SIZE];
+            return createEmptyHeapPageBytes();
         }
 
         try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
             if (pageNum * PAGE_SIZE >= raf.length()) {
-                return new byte[PAGE_SIZE];
+                // page beyond file size -> return empty initialized page
+                return createEmptyHeapPageBytes();
             }
 
             raf.seek(pageNum * PAGE_SIZE);
@@ -206,10 +206,34 @@ public class DefaultOperationManager implements OperationManager {
                 // Fill remaining with zeros
                 Arrays.fill(page, bytesRead, PAGE_SIZE, (byte) 0);
             }
+
+            // If page doesn't have valid HeapPage signature, initialize header so later readers (HeapPage) won't fail
+            ByteBuffer buf = ByteBuffer.wrap(page).order(ByteOrder.LITTLE_ENDIAN);
+            int sig = buf.getInt(0);
+            if (sig != 0xDBDB01) {
+                // initialize header fields similarly to HeapPage constructor:
+                buf.putInt(0, 0xDBDB01);
+                buf.putShort(4, (short) 0);             // size = 0 (no records yet)
+                buf.putShort(6, (short) 10);            // lower = HEADER_SIZE (10)
+                buf.putShort(8, (short) PAGE_SIZE);     // upper = PAGE_SIZE
+                // copy back
+                System.arraycopy(buf.array(), 0, page, 0, PAGE_SIZE);
+            }
+
             return page;
         } catch (IOException e) {
             throw new RuntimeException("Failed to read page", e);
         }
+    }
+
+    private byte[] createEmptyHeapPageBytes() {
+        byte[] page = new byte[PAGE_SIZE];
+        ByteBuffer buf = ByteBuffer.wrap(page).order(ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(0, 0xDBDB01);
+        buf.putShort(4, (short) 0);          // size = 0
+        buf.putShort(6, (short) 10);         // lower = HEADER_SIZE (10)
+        buf.putShort(8, (short) PAGE_SIZE);  // upper = PAGE_SIZE
+        return page;
     }
 
     private void writePage(TableDefinition table, int pageNum, byte[] page) {
