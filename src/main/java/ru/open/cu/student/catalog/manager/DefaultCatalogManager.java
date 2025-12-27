@@ -238,13 +238,18 @@ public class DefaultCatalogManager implements CatalogManager {
     }
 
     private void initializeDefaultTypes() {
-        if (types.isEmpty()) {
-            // Создаем базовые типы данных с конкретными OID (для согласованности с парсером)
-            // OID-ы соответствуют DefaultParser.mapTypeNameToOid: INTEGER=23, VARCHAR/TEXT=25, BOOLEAN=16, BIGINT=20
-            createType(23, "integer", 4);
-            createType(25, "varchar", -1); // переменной длины
-            createType(16, "boolean", 1);
-            createType(20, "bigint", 8);
+        // Всегда проверяем и создаем (если отсутствуют) стандартные типы с OID-ами,
+        // которые использует DefaultParser.mapTypeNameToOid
+        // OID: INTEGER=23, VARCHAR/TEXT=25, BOOLEAN=16, BIGINT=20
+        createTypeIfMissing(23, "integer", 4);
+        createTypeIfMissing(25, "varchar", -1);
+        createTypeIfMissing(16, "boolean", 1);
+        createTypeIfMissing(20, "bigint", 8);
+    }
+
+    private void createTypeIfMissing(int oid, String name, int byteLength) {
+        if (!types.containsKey(oid)) {
+            createType(oid, name, byteLength);
         }
     }
 
@@ -261,7 +266,6 @@ public class DefaultCatalogManager implements CatalogManager {
      */
     private void createType(int oid, String name, int byteLength) {
         if (types.containsKey(oid)) {
-            // Если тип с таким OID уже есть, ничего не делаем (можно изменить логику при необходимости)
             return;
         }
 

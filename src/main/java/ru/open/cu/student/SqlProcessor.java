@@ -139,10 +139,38 @@ public class SqlProcessor {
         RangeVar rangeVar = new RangeVar(is.schemaName, is.tableName, null);
         q.rangeTable.add(rangeVar);
 
-        // Преобразуем значения в AConst выражения
-        for (String value : is.values) {
-            // Создаем AConst для каждого значения
-            AConst constExpr = new AConst(value);
+        // Преобразуем значения в AConst выражения, со приведением типов:
+        // - NUMBER -> Integer (или Long если выходит за пределы int)
+        // - STRING -> String (парсер/лексер уже убирает кавычки)
+        // - TRUE/FALSE -> Boolean
+        // - NULL -> null
+        for (String raw : is.values) {
+            Object valueObj = null;
+            if (raw == null) {
+                valueObj = null;
+            } else {
+                String trimmed = raw.trim();
+                if (trimmed.equalsIgnoreCase("NULL")) {
+                    valueObj = null;
+                } else if (trimmed.equalsIgnoreCase("TRUE")) {
+                    valueObj = Boolean.TRUE;
+                } else if (trimmed.equalsIgnoreCase("FALSE")) {
+                    valueObj = Boolean.FALSE;
+                } else {
+                    // Попробуем распарсить число (int, потом long), иначе оставим строкой
+                    try {
+                        valueObj = Integer.parseInt(trimmed);
+                    } catch (NumberFormatException e1) {
+                        try {
+                            valueObj = Long.parseLong(trimmed);
+                        } catch (NumberFormatException e2) {
+                            // не число — оставляем строкой
+                            valueObj = trimmed;
+                        }
+                    }
+                }
+            }
+            AConst constExpr = new AConst(valueObj);
             TargetEntry te = new TargetEntry(constExpr, null);
             q.targetList.add(te);
         }
@@ -151,42 +179,36 @@ public class SqlProcessor {
     }
 
     private Expr translateExpr(AstNode node) {
-        if (node instanceof ColumnRef c) {
-            // Получаем имя столбца из ColumnRef
-            String colName = c.toString();
-            String[] qc = splitQualifiedColumn(colName);
-            return (qc[0] == null) ? new ColumnRef(qc[1]) : new ColumnRef(qc[0], qc[1]);
+        if (node instanceof ColumnRef cr) {
+            return new ru.open.cu.student.ast.ColumnRef(cr.column);
         }
-        if (node instanceof AConst c) {
-            return new AConst(c.getValue());
+        if (node instanceof AConst ac) {
+            // AConst.value в парсерной AST может быть строкой; конвертируем аналогично translateInsert
+            Object raw = ac.value;
+            if (raw instanceof String s) {
+                String trimmed = s.trim();
+                if (trimmed.equalsIgnoreCase("NULL")) return new Const(null);
+                if (trimmed.equalsIgnoreCase("TRUE")) return new Const(Boolean.TRUE);
+                if (trimmed.equalsIgnoreCase("FALSE")) return new Const(Boolean.FALSE);
+                try {
+                    return new Const(Integer.parseInt(trimmed));
+                } catch (NumberFormatException e1) {
+                    try {
+                        return new Const(Long.parseLong(trimmed));
+                    } catch (NumberFormatException e2) {
+                        return new Const(trimmed);
+                    }
+                }
+            } else {
+                return new Const(raw);
+            }
         }
-        if (node instanceof AExpr e) {
-            Expr left = translateExpr(e.getLeft());
-            Expr right = translateExpr(e.getRight());
-            return new AExpr(e.getOp(), left, right);
+        if (node instanceof AExpr aexpr) {
+            Expr left = translateExpr(aexpr.getLeft());
+            Expr right = translateExpr(aexpr.getRight());
+            return new AExpr(aexpr.getOp(), left, right);
         }
+        // По умолчанию — не поддерживаемый узел
         throw new IllegalArgumentException("Unsupported expression node: " + node.getClass().getSimpleName());
-    }
-
-    /**
-     * Split qualified column name from HW4 parser ("col" or "tbl.col" or "*").
-     * @return array [tableOrNull, column]
-     */
-    private String[] splitQualifiedColumn(String name) {
-        if (name == null) return new String[]{null, null};
-        String trimmed = name.trim();
-
-        // Обработка случая "*"
-        if (trimmed.equals("*")) {
-            return new String[]{null, "*"};
-        }
-
-        int dot = trimmed.indexOf('.');
-        if (dot >= 0) {
-            String t = trimmed.substring(0, dot);
-            String c = trimmed.substring(dot + 1);
-            return new String[]{t, c};
-        }
-        return new String[]{null, trimmed};
     }
 }

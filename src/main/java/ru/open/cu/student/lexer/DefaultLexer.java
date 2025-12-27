@@ -20,6 +20,45 @@ public class DefaultLexer implements Lexer{
                 continue;
             }
 
+            // Строковые литералы '...' или "..."
+            if (currentChar == '\'' || currentChar == '"') {
+                char quote = currentChar;
+                StringBuilder sb = new StringBuilder();
+                position++; // пропускаем открывающую кавычку
+                boolean closed = false;
+                while (position < length) {
+                    char c = sql.charAt(position);
+                    if (c == '\\') {
+                        // Экранирование: берём следующий символ (если есть)
+                        if (position + 1 < length) {
+                            char next = sql.charAt(position + 1);
+                            sb.append(next);
+                            position += 2;
+                        } else {
+                            // Нечего экранировать — добавим обратный слэш и выйдем
+                            sb.append(c);
+                            position++;
+                        }
+                        continue;
+                    }
+                    if (c == quote) {
+                        // закрывающая кавычка
+                        closed = true;
+                        position++;
+                        break;
+                    }
+                    sb.append(c);
+                    position++;
+                }
+                if (!closed) {
+                    // Некорректный литерал — вернём UNKNOWN с содержимым
+                    tokens.add(new Token("UNKNOWN", sb.toString()));
+                } else {
+                    tokens.add(new Token("STRING", sb.toString()));
+                }
+                continue;
+            }
+
             // Обрабатываем ключевые слова и идентификаторы
             if (Character.isLetter(currentChar)) {
                 StringBuilder word = new StringBuilder();
@@ -87,6 +126,10 @@ public class DefaultLexer implements Lexer{
                     break;
                 case '*':
                     tokens.add(new Token("ASTERISK", "*"));
+                    position++;
+                    break;
+                case '.':
+                    tokens.add(new Token("DOT", "."));
                     position++;
                     break;
                 default:
