@@ -167,4 +167,7 @@ List<Object> result = engine.execute(executor);
 ```
 
 ## Тесты
-Написать по паре тестов на каждую операцию INSERT, CREATE, SELECT - как положительные, так и отрицательные кейсы
+Написать по паре тестов на каждую операцию INSERT, CREATE, SELECT - как положительные, так и отрицательные кейсы  
+
+
+add new branch

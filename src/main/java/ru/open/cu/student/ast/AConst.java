@@ -1,6 +1,10 @@
 package ru.open.cu.student.ast;
 
 public class AConst extends Expr {
+    public Object getValue() {
+        return value;
+    }
+
     public Object value;       // значение: число, строка, boolean, null
 
     public AConst(Object val) {

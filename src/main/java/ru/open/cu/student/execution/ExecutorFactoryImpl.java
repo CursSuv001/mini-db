@@ -1,7 +1,6 @@
 package ru.open.cu.student.execution;
 
 
-import ru.open.cu.student.ast.AExpr;
 import ru.open.cu.student.catalog.manager.CatalogManager;
 import ru.open.cu.student.catalog.operation.OperationManager;
 import ru.open.cu.student.execution.executors.*;

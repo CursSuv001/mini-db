@@ -22,6 +22,7 @@ public class HeapTupleSerializer implements TupleSerializer {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <T> T deserialize(HeapTuple tuple) {
         return switch (tuple.type()) {
             case INT64 -> (T) Long.valueOf(bytesToLong(tuple.data()));
