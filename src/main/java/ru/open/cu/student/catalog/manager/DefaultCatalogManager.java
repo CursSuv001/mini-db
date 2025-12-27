@@ -239,18 +239,38 @@ public class DefaultCatalogManager implements CatalogManager {
 
     private void initializeDefaultTypes() {
         if (types.isEmpty()) {
-            // Создаем базовые типы данных
-            createType("integer", 4);
-            createType("varchar", -1); // переменной длины
-            createType("boolean", 1);
-            createType("bigint", 8);
+            // Создаем базовые типы данных с конкретными OID (для согласованности с парсером)
+            // OID-ы соответствуют DefaultParser.mapTypeNameToOid: INTEGER=23, VARCHAR/TEXT=25, BOOLEAN=16, BIGINT=20
+            createType(23, "integer", 4);
+            createType(25, "varchar", -1); // переменной длины
+            createType(16, "boolean", 1);
+            createType(20, "bigint", 8);
         }
     }
 
+    /**
+     * Создает тип с автоматически назначаемым OID (как раньше).
+     */
     private void createType(String name, int byteLength) {
-        TypeDefinition type = new TypeDefinition(nextTypeOid.getAndIncrement(), name, byteLength);
+        createType(nextTypeOid.getAndIncrement(), name, byteLength);
+    }
+
+    /**
+     * Создает тип с указанным OID. Если OID уже существует — метод возвращает сразу.
+     * После создания OID-ы nextTypeOid корректируются, чтобы не пересекаться с явно заданными OID.
+     */
+    private void createType(int oid, String name, int byteLength) {
+        if (types.containsKey(oid)) {
+            // Если тип с таким OID уже есть, ничего не делаем (можно изменить логику при необходимости)
+            return;
+        }
+
+        TypeDefinition type = new TypeDefinition(oid, name, byteLength);
         types.put(type.oid(), type);
         saveRecord(TYPE_FILE, type.toBytes());
+
+        // Обновим nextTypeOid, чтобы он всегда был > всех существующих OID
+        nextTypeOid.updateAndGet(current -> Math.max(current, oid + 1));
     }
 
     // Вспомогательный метод для получения типа по имени
